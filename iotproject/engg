@@ -1,0 +1,85 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <DHT.h>
+
+#define DHTPIN 4           // DHT sensor pin (not used for simulation)
+#define DHTTYPE DHT11      // DHT11 sensor type
+#define MQ135_PIN 34       // Analog pin for MQ135 sensor (original gas sensor)
+#define MQ2_PIN 35         // Analog pin for MQ2 sensor
+#define MQ5_PIN 32         // Analog pin for MQ5 sensor
+#define BUZZER_PIN 26      // Digital pin for the buzzer
+
+const char* ssid = "vivo 1812";        // Your WiFi SSID
+const char* password = "123456789";             // Your WiFi password
+const char* server = "https://api.thingspeak.com/update"; // ThingSpeak API URL
+const char* apiKey = "VAS3Y5GINHNAXASM";              // ThingSpeak API key
+
+WiFiClient client;
+
+void sendToThingSpeak(float temperature, float humidity, int mq135Value, int mq2Value, int mq5Value) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = String(server) + "?api_key=" + apiKey +
+                 "&field1=" + String(temperature) +
+                 "&field2=" + String(humidity) +
+                 "&field3=" + String(mq135Value) +
+                 "&field4=" + String(mq2Value) +
+                 "&field5=" + String(mq5Value);
+
+    http.begin(url);
+    int httpResponseCode = http.GET();
+    http.end();
+
+    if (httpResponseCode > 0) {
+      Serial.println("Data sent to ThingSpeak.");
+    } else {
+      Serial.println("Error sending data.");
+    }
+  } else {
+    Serial.println("WiFi disconnected.");
+  }
+}
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+  pinMode(BUZZER_PIN, OUTPUT); // Initialize buzzer pin as output
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
+}
+void loop() {
+  // Simulate sensor values
+  float temperature = random(20, 31);   
+  float humidity = random(40, 71);      
+  int mq135Value = analogRead(MQ135_PIN);
+  int mq2Value = analogRead(MQ2_PIN);
+  int mq5Value = analogRead(MQ5_PIN);
+  Serial.print("Temperature: ");
+  Serial.println(temperature);
+  Serial.print("Humidity: ");
+  Serial.println(humidity);
+  Serial.print("MQ135: ");
+  Serial.println(mq135Value);
+  Serial.print("MQ2: ");
+  Serial.println(mq2Value);
+  Serial.print("MQ5: ");
+  Serial.println(mq5Value);
+
+  sendToThingSpeak(temperature, humidity, mq135Value, mq2Value, mq5Value);
+
+  if (mq135Value < 600) {
+    Serial.println("Fresh Air");
+    digitalWrite(BUZZER_PIN, LOW); 
+  } else {
+    Serial.println("Bad Air");
+    digitalWrite(BUZZER_PIN, HIGH); 
+    delay(1000);
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  delay(4000);
+}
